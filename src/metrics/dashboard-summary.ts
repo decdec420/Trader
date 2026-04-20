@@ -8,7 +8,8 @@ import { CapitalScalingPolicy } from "../risk/CapitalScalingPolicy.js";
 import { CAPITAL_PRESERVATION_DOCTRINE } from "../doctrine/capital-preservation.js";
 
 export interface DashboardSummaryPayload {
-  liveApprovalRequired: boolean;
+  liveApprovalRequiredByDoctrine: boolean;
+  activeModeRequiresManualApproval: boolean;
   activeLiveStrategyVersion: string | null;
   activeLiveStrategyStage: string | null;
   candidateStrategyQueue: string[];
@@ -47,7 +48,8 @@ export function buildDashboardSummary(args: {
 
   const live = registry.getLive();
   return {
-    liveApprovalRequired: args.approvalPolicy.name === "manual-live",
+    liveApprovalRequiredByDoctrine: CAPITAL_PRESERVATION_DOCTRINE.principles.liveRequiresApproval,
+    activeModeRequiresManualApproval: args.approvalPolicy.name === "manual-live",
     activeLiveStrategyVersion: live?.version ?? null,
     activeLiveStrategyStage: live?.stage ?? null,
     candidateStrategyQueue: registry.listByStage("candidate").map((x) => x.version),

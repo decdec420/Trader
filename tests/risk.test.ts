@@ -36,14 +36,19 @@ describe("RiskManager", () => {
   });
 
   it("blocks outside configured UTC trading window", () => {
-    const midnight = new Date();
-    midnight.setUTCHours(2, 0, 0, 0);
+    const now = new Date();
+    const currentHour = now.getUTCHours();
+    const blockedStart = (currentHour + 1) % 24;
+    const blockedEnd = (currentHour + 2) % 24;
+
     const r = new RiskManager().check({
       ...baseInput,
-      latestCandleEndedAt: midnight.toISOString(),
-      tradingWindowStartHourUtc: 6,
-      tradingWindowEndHourUtc: 22
+      quote: { ...baseInput.quote, timestamp: now.toISOString() },
+      latestCandleEndedAt: now.toISOString(),
+      tradingWindowStartHourUtc: blockedStart,
+      tradingWindowEndHourUtc: blockedEnd
     });
+
     expect(r.allow).toBe(false);
     expect(r.reason).toBe(RISK_REASONS.OUTSIDE_TRADING_WINDOW);
   });

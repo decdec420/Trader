@@ -47,13 +47,14 @@ export async function runScan(mode: "paper" | "live"): Promise<void> {
         context: { lifecycleReason: lifecycleDecision.reason }
       });
 
-      journal.decision({ decision: approval.approved ? "allow" : "skip", reason: approval.reason, policy: approvalPolicy.name });
       if (!approval.approved) {
+        journal.decision({ decision: "skip", reason: approval.reason, policy: approvalPolicy.name });
         logger.info({ approval }, "scan.lifecycle.exit.rejected");
         return;
       }
 
       const exitOrder = await orderManager.placeExit("BTC-USD", lifecycleDecision.limitPrice ?? latest.close, notional);
+      journal.decision({ decision: "allow", reason: approval.reason, policy: approvalPolicy.name });
       journal.order({
         side: "sell",
         reason: lifecycleDecision.reason,
@@ -137,14 +138,15 @@ export async function runScan(mode: "paper" | "live"): Promise<void> {
     approvalToken: config.LIVE_APPROVAL_TOKEN,
     context: { regime, setupScore: setup.score }
   });
-  journal.decision({ decision: approval.approved ? "allow" : "skip", reason: approval.reason, policy: approvalPolicy.name });
   if (!approval.approved) {
+    journal.decision({ decision: "skip", reason: approval.reason, policy: approvalPolicy.name });
     logger.info({ approval }, "scan.entry.rejected_by_approval");
     return;
   }
 
   const entryPrice = quote.ask;
   const order = await orderManager.placeEntry("BTC-USD", entryPrice, 1);
+  journal.decision({ decision: "allow", reason: approval.reason, policy: approvalPolicy.name });
   journal.order({ side: "buy", reason: signal.reason, orderId: order.id, limitPrice: entryPrice, notionalUsd: 1, strategyVersion, regime });
   logger.info({ orderId: order.id, setupScore: setup.score }, "scan.entry.placed");
 }
