@@ -1,4 +1,4 @@
-import { writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildDashboardSummary } from "../src/metrics/dashboard-summary.js";
@@ -11,6 +11,7 @@ describe("dashboard summary payload", () => {
   it("contains approval, strategy queue, distributions, and scaling recommendation", () => {
     const dataDir = join("tests", "tmp", `dashboard-${Date.now()}`);
     rmSync(dataDir, { recursive: true, force: true });
+    mkdirSync(dataDir, { recursive: true });
 
     writeFileSync(
       join(dataDir, "trade-journal.ndjson"),
@@ -28,7 +29,8 @@ describe("dashboard summary payload", () => {
     const config = parseAppConfig({ DATA_DIR: dataDir, MAX_ORDER_USD: 1 });
     const payload = buildDashboardSummary({ config, approvalPolicy: new ManualApprovalPolicy("token"), mode: "live" });
 
-    expect(payload.liveApprovalRequired).toBe(true);
+    expect(payload.activeModeRequiresManualApproval).toBe(true);
+    expect(payload.liveApprovalRequiredByDoctrine).toBe(true);
     expect(payload.candidateStrategyQueue).toContain("v1");
     expect(payload.recentSkipReasons.length).toBeGreaterThan(0);
     expect(payload.scalingRecommendation.recommendedOrderUsd).toBeLessThanOrEqual(1);
