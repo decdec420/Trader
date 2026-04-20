@@ -1,3 +1,5 @@
+import type { SignalReason } from "./execution/reasons.js";
+
 export type SymbolPair = "BTC-USD";
 export type Mode = "research" | "paper" | "learn" | "live";
 
@@ -60,7 +62,7 @@ export interface StrategyParams {
 
 export interface Signal {
   action: "buy" | "none";
-  reason: string;
+  reason: SignalReason;
   stopLoss?: number;
   takeProfit?: number;
 }

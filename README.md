@@ -1,17 +1,14 @@
 # crypto-bot
 
-A cautious, auditable TypeScript Node.js crypto learning bot for **BTC-USD** using:
-- research mode
-- paper trading mode
-- controlled learning mode
-- optional live mode (explicitly gated)
+Safety-first TypeScript Node.js crypto learning system for **BTC-USD only**.
 
-## Paper mode first
+## Core posture
 
-Default mode is paper trading. Live mode is blocked unless:
-1. `LIVE_TRADING=true`
-2. API credentials are present
-3. `APPROVED_STRATEGY_VERSION` is set
+- paper-first by default
+- live mode is explicitly gated
+- no hype behavior, no HFT, no leverage
+- capital preservation over trade frequency
+- explainable decisions with typed reasons and journals
 
 ## Setup
 
@@ -31,54 +28,67 @@ pnpm test
 - `pnpm bot:learn`
 - `pnpm bot:live`
 - `pnpm bot:journal`
+- `pnpm bot:summary`
 - `pnpm bot:promote`
 
-## How it works
+## Phase 2 (v2.5 foundation)
 
-1. Candle loader gets 5m candles.
-2. Indicator library computes MA20 + basic volatility.
-3. Regime classifier labels market (trend/chop/high-vol/no-trade).
-4. Signal engine triggers long-only entry on pullback-recovery above prior high.
-5. Risk + portfolio guard enforces limits:
-   - max order $1
-   - max 2 trades/day
-   - max daily loss $1
-   - max open positions 1
-   - spread and staleness checks
-   - no market orders, no shorting, no averaging down, no martingale
-6. Paper broker simulates fills with fee/slippage assumptions.
-7. Learning manager evaluates paper results and proposes **small** parameter changes.
-8. Strategy registry tracks candidate/approved/live versions.
-9. Live mode uses locked approved strategy only.
+### 1) Approval layer
 
-## Research + paper + learning workflow
+- `src/approval/ApprovalPolicy.ts` defines approval interfaces and typed reasons.
+- `PaperAutoApprovalPolicy` auto-approves paper trades.
+- `ManualApprovalPolicy` requires explicit token for live mode.
+- Run scan flow logs approval decisions before any entry/exit order.
 
-1. Run research:
-   - `pnpm bot:research`
-2. Run paper simulation:
-   - `pnpm bot:paper`
-3. Run controlled learning:
-   - `pnpm bot:learn`
-4. Promote vetted version:
-   - `pnpm bot:promote`
-5. Optional live:
-   - `pnpm bot:live`
+### 2) Strategy release lifecycle
 
-Live strategy does **not** auto-mutate from learning output.
+Strategy stages now behave like releases:
+- `seeded -> candidate -> approved -> live -> retired`
+- retired strategies cannot be reused by default
+- invalid transitions fail loudly
+- live selection is explicit (`setLive`) and cannot auto-promote from candidate
 
-## Risks and limitations
+### 3) Slow brain / postmortem engine
 
-- Educational system, not financial advice.
-- Single asset (BTC-USD), single strategy.
-- Robinhood endpoint specifics are isolated in typed adapter methods with documented assumptions.
-- No aggressive retries; API failures fail safe.
-- Backtest quality depends on data fidelity and fee/slippage assumptions.
+- Deterministic postmortem payloads in `src/analysis/postmortem-builder.ts`
+- LLM-ready wrapper payload in `src/analysis/llm-payloads.ts`
+- Journal-derived recent summary parser in `src/metrics/recent-summary.ts`
 
-## Sample logs
+### 4) Capital scaling policy
 
-```json
-{"level":30,"time":1710000000000,"mode":"paper","msg":"scan.start"}
-{"level":30,"time":1710000000010,"symbol":"BTC-USD","regime":"trend","msg":"research.observation"}
-{"level":30,"time":1710000000020,"decision":"skip","reason":"spread_too_wide","msg":"trade.decision"}
-{"level":30,"time":1710000000030,"strategyVersion":"v1","msg":"learning.recommendation.none"}
-```
+- `src/risk/CapitalScalingPolicy.ts` recommends `hold`, `scale_up_small`, or `scale_down`
+- conservative by default
+- drawdown-aware downscaling
+- minimum sample-size gates
+- never exceeds hard caps
+
+### 5) Capital preservation doctrine
+
+- `src/doctrine/capital-preservation.ts` encodes hard principles and invariants
+- doctrine invariant check runs at CLI startup
+
+### 6) Dashboard-ready summaries
+
+`pnpm bot:summary` emits structured payload with:
+- live approval requirement
+- active live strategy and stage
+- candidate strategy queue
+- recent trade summary + skip reasons
+- regime/time-bucket distributions
+- lifecycle transition counts
+- scaling recommendation
+- doctrine-based capital preservation status
+
+## Safety rules (high level)
+
+- BTC-USD only
+- max order USD hard cap
+- daily trade and daily loss caps
+- spread/staleness guards
+- no shorting / no market orders
+- no overnight positions in lifecycle engine
+- no live auto-approval by default
+
+## Future LLM integration note
+
+Current postmortem + summary payloads are deterministic and typed. They are prepared for future LLM analyst/copilot integration, but the system has no autonomous live trading authority.

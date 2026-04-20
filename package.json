@@ -18,7 +18,8 @@
     "bot:learn": "tsx src/cli/index.ts bot:learn",
     "bot:live": "tsx src/cli/index.ts bot:live",
     "bot:journal": "tsx src/cli/index.ts bot:journal",
-    "bot:promote": "tsx src/cli/index.ts bot:promote"
+    "bot:promote": "tsx src/cli/index.ts bot:promote",
+    "bot:summary": "tsx src/cli/index.ts bot:summary"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
