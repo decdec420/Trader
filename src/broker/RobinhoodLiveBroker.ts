@@ -39,13 +39,33 @@ export class RobinhoodLiveBroker implements Broker {
     return (await res.json()) as T;
   }
 
+  /**
+   * Safety behavior: if daily stats are unavailable, return conservative values
+   * that trigger risk caps rather than silently weakening them.
+   */
+  private async getDailyRiskStatsSafe(): Promise<{ dailyRealizedPnlUsd: number; dailyTrades: number }> {
+    try {
+      const daily = await this.request<{ daily_realized_pnl_usd: number; daily_trades: number }>("/api/v1/account/daily_stats");
+      return {
+        dailyRealizedPnlUsd: Number(daily.daily_realized_pnl_usd ?? 0),
+        dailyTrades: Number(daily.daily_trades ?? 0)
+      };
+    } catch {
+      return {
+        dailyRealizedPnlUsd: -1,
+        dailyTrades: 2
+      };
+    }
+  }
+
   async getAccount(): Promise<AccountSnapshot> {
     const raw = await this.request<{ balance_usd: number; equity_usd: number }>("/api/v1/account");
+    const daily = await this.getDailyRiskStatsSafe();
     return {
       balanceUsd: raw.balance_usd,
       equityUsd: raw.equity_usd,
-      dailyRealizedPnlUsd: 0,
-      dailyTrades: 0
+      dailyRealizedPnlUsd: daily.dailyRealizedPnlUsd,
+      dailyTrades: daily.dailyTrades
     };
   }
 
