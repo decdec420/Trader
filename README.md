@@ -1,0 +1,2 @@
+# Trader
+Stock/Crypto Trader
