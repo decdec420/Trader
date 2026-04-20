@@ -33,23 +33,36 @@ pnpm test
 - `pnpm bot:journal`
 - `pnpm bot:promote`
 
+## v2 architecture pass (current)
+
+This pass adds six disciplined upgrades:
+1. persistent paper portfolio state (`data/paper-portfolio.json`)
+2. trade lifecycle engine for stop-loss / take-profit / no-overnight exits
+3. typed reason taxonomy for signal/risk/lifecycle decisions
+4. setup scoring system with auditable score breakdown
+5. time-of-day + volatility risk filters
+6. metrics aggregation with LLM-ready summary payloads
+
 ## How it works
 
 1. Candle loader gets 5m candles.
-2. Indicator library computes MA20 + basic volatility.
+2. Indicator library computes MA20 + realized volatility.
 3. Regime classifier labels market (trend/chop/high-vol/no-trade).
-4. Signal engine triggers long-only entry on pullback-recovery above prior high.
-5. Risk + portfolio guard enforces limits:
+4. Signal engine detects pullback-recovery entries above MA.
+5. Lifecycle engine manages exits from open positions:
+   - stop loss hit
+   - take profit hit
+   - end-of-day exit (no overnight v1)
+6. Risk manager enforces strict filters:
    - max order $1
    - max 2 trades/day
    - max daily loss $1
-   - max open positions 1
-   - spread and staleness checks
-   - no market orders, no shorting, no averaging down, no martingale
-6. Paper broker simulates fills with fee/slippage assumptions.
-7. Learning manager evaluates paper results and proposes **small** parameter changes.
-8. Strategy registry tracks candidate/approved/live versions.
-9. Live mode uses locked approved strategy only.
+   - max open positions/order
+   - spread + staleness checks
+   - trading window (UTC)
+   - volatility guard
+7. Setup score gates entries so low-quality setups are skipped.
+8. Journals track decisions/orders and metrics aggregator emits dashboard + LLM-ready summaries.
 
 ## Research + paper + learning workflow
 
@@ -72,13 +85,4 @@ Live strategy does **not** auto-mutate from learning output.
 - Single asset (BTC-USD), single strategy.
 - Robinhood endpoint specifics are isolated in typed adapter methods with documented assumptions.
 - No aggressive retries; API failures fail safe.
-- Backtest quality depends on data fidelity and fee/slippage assumptions.
-
-## Sample logs
-
-```json
-{"level":30,"time":1710000000000,"mode":"paper","msg":"scan.start"}
-{"level":30,"time":1710000000010,"symbol":"BTC-USD","regime":"trend","msg":"research.observation"}
-{"level":30,"time":1710000000020,"decision":"skip","reason":"spread_too_wide","msg":"trade.decision"}
-{"level":30,"time":1710000000030,"strategyVersion":"v1","msg":"learning.recommendation.none"}
-```
+- Paper market model is simplistic and intended for guarded learning, not production alpha claims.

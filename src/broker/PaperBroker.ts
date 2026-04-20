@@ -1,6 +1,8 @@
+import { join } from "node:path";
 import type { Broker } from "./Broker.js";
 import type { AccountSnapshot, Candle, Order, OrderRequest, Position, Quote, SymbolPair } from "../types.js";
 import { nowIso, utcDateKey } from "../utils/time.js";
+import { readJsonFile, writeJsonFile } from "../utils/fs.js";
 
 interface PaperState {
   balanceUsd: number;
@@ -16,18 +18,25 @@ export class PaperBroker implements Broker {
   private state: PaperState;
   private readonly feeBps: number;
   private readonly slippageBps: number;
+  private readonly statePath: string;
 
-  constructor(initialBalance = 10, feeBps = 10, slippageBps = 10) {
-    this.state = {
+  constructor(initialBalance = 10, feeBps = 10, slippageBps = 10, dataDir = "./data") {
+    this.feeBps = feeBps;
+    this.slippageBps = slippageBps;
+    this.statePath = join(dataDir, "paper-portfolio.json");
+
+    this.state = readJsonFile<PaperState>(this.statePath, {
       balanceUsd: initialBalance,
       equityUsd: initialBalance,
       dailyRealizedPnlByDate: {},
       dailyTradesByDate: {},
       openOrder: null,
       position: null
-    };
-    this.feeBps = feeBps;
-    this.slippageBps = slippageBps;
+    });
+  }
+
+  private persist(): void {
+    writeJsonFile(this.statePath, this.state);
   }
 
   async getAccount(): Promise<AccountSnapshot> {
@@ -60,7 +69,10 @@ export class PaperBroker implements Broker {
       const low = Math.min(open, close) - 8;
       candles.push({
         symbol,
-        open, high, low, close,
+        open,
+        high,
+        low,
+        close,
         volume: 1,
         startedAt: t.toISOString(),
         endedAt: new Date(t.getTime() + 5 * 60 * 1000).toISOString()
@@ -81,14 +93,16 @@ export class PaperBroker implements Broker {
 
   async placeLimitOrder(req: OrderRequest): Promise<Order> {
     if (req.type !== "limit") throw new Error("PaperBroker supports limit orders only.");
+
     const order: Order = {
       id: `paper-${Date.now()}`,
       status: "filled",
       request: req,
       createdAt: nowIso(),
-      filledPrice: req.side === "buy"
-        ? req.limitPrice * (1 + this.slippageBps / 10000)
-        : req.limitPrice * (1 - this.slippageBps / 10000)
+      filledPrice:
+        req.side === "buy"
+          ? req.limitPrice * (1 + this.slippageBps / 10000)
+          : req.limitPrice * (1 - this.slippageBps / 10000)
     };
 
     const fee = req.notionalUsd * (this.feeBps / 10000);
@@ -108,17 +122,20 @@ export class PaperBroker implements Broker {
       const pos = this.state.position;
       if (!pos) throw new Error("No open position to sell.");
       const proceeds = pos.qty * (order.filledPrice ?? req.limitPrice);
-      const pnl = proceeds - req.notionalUsd;
+      const costBasis = pos.qty * pos.entryPrice;
+      const pnl = proceeds - costBasis;
       this.state.balanceUsd += proceeds - fee;
       this.state.dailyRealizedPnlByDate[k] = (this.state.dailyRealizedPnlByDate[k] ?? 0) + pnl - fee;
       this.state.position = null;
     }
 
-    this.state.equityUsd = this.state.balanceUsd + (this.state.position ? req.notionalUsd : 0);
+    this.state.equityUsd = this.state.balanceUsd;
+    this.persist();
     return order;
   }
 
   async cancelOrder(_orderId: string): Promise<void> {
     this.state.openOrder = null;
+    this.persist();
   }
 }

@@ -6,4 +6,5 @@ coverage/
 data/*
 !data/.gitkeep
 
-tests/tmp/*.ndjson
+tests/tmp/*
+!tests/tmp/.gitkeep

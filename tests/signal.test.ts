@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SIGNAL_REASONS } from "../src/execution/reasons.js";
 import { SignalEngine } from "../src/strategy/SignalEngine.js";
 import type { Candle } from "../src/types.js";
 
@@ -10,11 +11,7 @@ function c(close: number, high = close + 2): Candle {
 describe("SignalEngine", () => {
   it("emits buy on pullback recovery above prior high in uptrend", () => {
     const engine = new SignalEngine();
-    const candles: Candle[] = [
-      ...Array.from({ length: 20 }, (_, i) => c(100 + i, 102 + i)),
-      c(125, 126),
-      c(130, 131)
-    ];
+    const candles: Candle[] = [...Array.from({ length: 20 }, (_, i) => c(100 + i, 102 + i)), c(125, 126), c(130, 131)];
     candles[candles.length - 2] = c(124, 125);
     candles[candles.length - 3] = c(126, 127);
 
@@ -27,6 +24,7 @@ describe("SignalEngine", () => {
     });
 
     expect(signal.action).toBe("buy");
+    expect(signal.reason).toBe(SIGNAL_REASONS.PULLBACK_RECOVERY_ABOVE_MA);
   });
 
   it("skips when not above MA", () => {
@@ -40,5 +38,6 @@ describe("SignalEngine", () => {
       cooldownCandles: 1
     });
     expect(signal.action).toBe("none");
+    expect(signal.reason).toBe(SIGNAL_REASONS.NOT_ABOVE_MA);
   });
 });
