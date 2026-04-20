@@ -9,9 +9,15 @@ import { runResearch } from "../app/runResearch.js";
 import { runScan } from "../app/runScan.js";
 import { MetricsAggregator } from "../journal/MetricsAggregator.js";
 import { logger } from "../utils/logger.js";
+import { buildRecentPostmortemFromJournal } from "../metrics/recent-summary.js";
+import { toLlmAnalystPayload } from "../analysis/llm-payloads.js";
+import { CAPITAL_PRESERVATION_DOCTRINE, validateDoctrineInvariants } from "../doctrine/capital-preservation.js";
+import { createApprovalPolicy } from "../approval/createApprovalPolicy.js";
+import { buildDashboardSummary } from "../metrics/dashboard-summary.js";
 
 async function main(): Promise<void> {
   const cmd = process.argv[2];
+  validateDoctrineInvariants();
 
   switch (cmd) {
     case "bot:status":
@@ -25,7 +31,8 @@ async function main(): Promise<void> {
             maxDailyTrades: config.MAX_DAILY_TRADES,
             maxDailyLossUsd: config.MAX_DAILY_LOSS_USD,
             minBalanceUsd: config.MIN_BALANCE_USD
-          }
+          },
+          doctrine: CAPITAL_PRESERVATION_DOCTRINE.doctrineVersion
         },
         "status"
       );
@@ -54,7 +61,18 @@ async function main(): Promise<void> {
       const lines = readFileSync(file, "utf8").trim().split("\n").slice(-20);
       for (const line of lines) console.log(line);
 
-      const summary = new MetricsAggregator().summarizeTradeJournal(file);
+      const metrics = new MetricsAggregator().summarizeTradeJournal(file);
+      const postmortem = buildRecentPostmortemFromJournal(file);
+      const llmPayload = toLlmAnalystPayload(postmortem, CAPITAL_PRESERVATION_DOCTRINE);
+
+      console.log(JSON.stringify(metrics, null, 2));
+      console.log(JSON.stringify(llmPayload, null, 2));
+      break;
+    }
+    case "bot:summary": {
+      const mode = config.LIVE_TRADING ? "live" : "paper";
+      const approvalPolicy = createApprovalPolicy(mode, config.LIVE_APPROVAL_TOKEN);
+      const summary = buildDashboardSummary({ config, approvalPolicy, mode });
       console.log(JSON.stringify(summary, null, 2));
       break;
     }

@@ -14,10 +14,12 @@ export async function runLearn(): Promise<void> {
     registry.save({
       version: baseVersion,
       params: defaultStrategy,
-      stage: "approved",
+      stage: "seeded",
       createdAt: new Date().toISOString(),
-      notes: "initial strategy"
+      notes: "initial seeded strategy"
     });
+    registry.transition(baseVersion, "candidate");
+    registry.transition(baseVersion, "approved");
   }
 
   const changed = lm.proposeVariant(defaultStrategy);
@@ -29,10 +31,11 @@ export async function runLearn(): Promise<void> {
     registry.save({
       version: candidateVersion,
       params: { ...defaultStrategy, ...changed },
-      stage: "candidate",
+      stage: "seeded",
       createdAt: new Date().toISOString(),
       notes: `auto-generated from ${baseVersion}`
     });
+    registry.transition(candidateVersion, "candidate");
   }
 
   logger.info({ result }, "learning.completed");

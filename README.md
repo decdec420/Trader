@@ -1,17 +1,14 @@
 # crypto-bot
 
-A cautious, auditable TypeScript Node.js crypto learning bot for **BTC-USD** using:
-- research mode
-- paper trading mode
-- controlled learning mode
-- optional live mode (explicitly gated)
+Safety-first TypeScript Node.js crypto learning system for **BTC-USD only**.
 
-## Paper mode first
+## Core posture
 
-Default mode is paper trading. Live mode is blocked unless:
-1. `LIVE_TRADING=true`
-2. API credentials are present
-3. `APPROVED_STRATEGY_VERSION` is set
+- paper-first by default
+- live mode is explicitly gated
+- no hype behavior, no HFT, no leverage
+- capital preservation over trade frequency
+- explainable decisions with typed reasons and journals
 
 ## Setup
 
@@ -31,58 +28,67 @@ pnpm test
 - `pnpm bot:learn`
 - `pnpm bot:live`
 - `pnpm bot:journal`
+- `pnpm bot:summary`
 - `pnpm bot:promote`
 
-## v2 architecture pass (current)
+## Phase 2 (v2.5 foundation)
 
-This pass adds six disciplined upgrades:
-1. persistent paper portfolio state (`data/paper-portfolio.json`)
-2. trade lifecycle engine for stop-loss / take-profit / no-overnight exits
-3. typed reason taxonomy for signal/risk/lifecycle decisions
-4. setup scoring system with auditable score breakdown
-5. time-of-day + volatility risk filters
-6. metrics aggregation with LLM-ready summary payloads
+### 1) Approval layer
 
-## How it works
+- `src/approval/ApprovalPolicy.ts` defines approval interfaces and typed reasons.
+- `PaperAutoApprovalPolicy` auto-approves paper trades.
+- `ManualApprovalPolicy` requires explicit token for live mode.
+- Run scan flow logs approval decisions before any entry/exit order.
 
-1. Candle loader gets 5m candles.
-2. Indicator library computes MA20 + realized volatility.
-3. Regime classifier labels market (trend/chop/high-vol/no-trade).
-4. Signal engine detects pullback-recovery entries above MA.
-5. Lifecycle engine manages exits from open positions:
-   - stop loss hit
-   - take profit hit
-   - end-of-day exit (no overnight v1)
-6. Risk manager enforces strict filters:
-   - max order $1
-   - max 2 trades/day
-   - max daily loss $1
-   - max open positions/order
-   - spread + staleness checks
-   - trading window (UTC)
-   - volatility guard
-7. Setup score gates entries so low-quality setups are skipped.
-8. Journals track decisions/orders and metrics aggregator emits dashboard + LLM-ready summaries.
+### 2) Strategy release lifecycle
 
-## Research + paper + learning workflow
+Strategy stages now behave like releases:
+- `seeded -> candidate -> approved -> live -> retired`
+- retired strategies cannot be reused by default
+- invalid transitions fail loudly
+- live selection is explicit (`setLive`) and cannot auto-promote from candidate
 
-1. Run research:
-   - `pnpm bot:research`
-2. Run paper simulation:
-   - `pnpm bot:paper`
-3. Run controlled learning:
-   - `pnpm bot:learn`
-4. Promote vetted version:
-   - `pnpm bot:promote`
-5. Optional live:
-   - `pnpm bot:live`
+### 3) Slow brain / postmortem engine
 
-Live strategy does **not** auto-mutate from learning output.
+- Deterministic postmortem payloads in `src/analysis/postmortem-builder.ts`
+- LLM-ready wrapper payload in `src/analysis/llm-payloads.ts`
+- Journal-derived recent summary parser in `src/metrics/recent-summary.ts`
 
-## Risks and limitations
+### 4) Capital scaling policy
 
-- Educational system, not financial advice.
-- Single asset (BTC-USD), single strategy.
-- Robinhood endpoint specifics are isolated in typed adapter methods with documented assumptions.
-- No aggressive retries; API failures fail safe.
-- Paper market model is simplistic and intended for guarded learning, not production alpha claims.
+- `src/risk/CapitalScalingPolicy.ts` recommends `hold`, `scale_up_small`, or `scale_down`
+- conservative by default
+- drawdown-aware downscaling
+- minimum sample-size gates
+- never exceeds hard caps
+
+### 5) Capital preservation doctrine
+
+- `src/doctrine/capital-preservation.ts` encodes hard principles and invariants
+- doctrine invariant check runs at CLI startup
+
+### 6) Dashboard-ready summaries
+
+`pnpm bot:summary` emits structured payload with:
+- live approval requirement
+- active live strategy and stage
+- candidate strategy queue
+- recent trade summary + skip reasons
+- regime/time-bucket distributions
+- lifecycle transition counts
+- scaling recommendation
+- doctrine-based capital preservation status
+
+## Safety rules (high level)
+
+- BTC-USD only
+- max order USD hard cap
+- daily trade and daily loss caps
+- spread/staleness guards
+- no shorting / no market orders
+- no overnight positions in lifecycle engine
+- no live auto-approval by default
+
+## Future LLM integration note
+
+Current postmortem + summary payloads are deterministic and typed. They are prepared for future LLM analyst/copilot integration, but the system has no autonomous live trading authority.

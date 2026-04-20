@@ -35,7 +35,8 @@ export const envSchema = z.object({
   SLIPPAGE_BPS: z.coerce.number().min(0).max(1000).default(10),
   MAX_SPREAD_BPS: z.coerce.number().min(1).max(500).default(30),
   STALE_CANDLE_SECONDS: z.coerce.number().int().positive().default(180),
-  DATA_DIR: z.string().default("./data")
+  DATA_DIR: z.string().default("./data"),
+  LIVE_APPROVAL_TOKEN: z.string().optional().default("")
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
